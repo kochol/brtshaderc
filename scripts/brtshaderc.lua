@@ -8,13 +8,11 @@ local FCPP_DIR = path.join(BGFX_DIR, "3rdparty/fcpp")
 local GLSLANG = path.join(BGFX_DIR, "3rdparty/glslang")
 local SPIRV_TOOLS = path.join(BGFX_DIR, "3rdparty/spirv-tools")
 
-group "libs"
-
 project "brtshaderc"
 	kind "StaticLib"
 
     files {
-        path.join(BGFX_DIR, "tools/brtshaderc/brtshaderc.cpp"),
+        path.join(MODULE_DIR, "deps/brtshaderc/tools/brtshaderc/brtshaderc.cpp"),
     }
 
 

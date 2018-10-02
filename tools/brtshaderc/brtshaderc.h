@@ -20,6 +20,7 @@ namespace shaderc
     const bgfx::Memory* compileShader(
             ShaderType type
           , const char* filePath
+		  , const char* code = nullptr
           , const char* defines = nullptr
           , const char* varyingPath = nullptr
           , const char* profile = nullptr

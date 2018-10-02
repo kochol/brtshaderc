@@ -124,11 +124,11 @@ namespace shaderc
 
 
 
-    const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath, const char* profile)
+    const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* code, const char* defines, const char* varyingPath, const char* profile)
     {
         bgfx::Options options;
 
-        options.inputFilePath = filePath;
+		options.inputFilePath = filePath;
         options.shaderType = type;
 
         // set platform
@@ -214,6 +214,7 @@ namespace shaderc
 
         // include current dir
         std::string dir;
+		if (!code)
         {
             const char* base = bgfx::baseName(filePath);
 
@@ -253,7 +254,7 @@ namespace shaderc
         else
         {
             fprintf(stderr, "ERROR: Failed to parse varying def file: \"%s\" No input/output semantics will be generated in the code!\n", varyingdef);
-            return nullptr;
+  //          return nullptr;
         }
 
 
@@ -268,9 +269,16 @@ namespace shaderc
 
         // add padding
         const size_t padding = 4096;
-        uint32_t size = (uint32_t)bx::getSize(&reader);
+		uint32_t size;
+		if (code)
+			size = strlen(code);
+		else
+			size = (uint32_t)bx::getSize(&reader);
         char* data = new char[size+padding+1];
-        size = (uint32_t)bx::read(&reader, data, size);
+		if (code)
+			bx::memCopy(data, code, size);
+		else
+	        size = (uint32_t)bx::read(&reader, data, size);
 
         if (data[0] == '\xef'
                 &&  data[1] == '\xbb'
