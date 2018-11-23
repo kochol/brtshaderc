@@ -45,7 +45,7 @@ void printError(FILE* file, const char* format, ...)
 #undef BX_CHECK
 
 // include original shaderc code files
-#include "../../bgfx/tools/shaderc/shaderc.cpp"
+#include "../../bgfx/tools/shaderc/shaderc.cpp" 
 #include "../../bgfx/tools/shaderc/shaderc_hlsl.cpp"
 #include "../../bgfx/tools/shaderc/shaderc_glsl.cpp"
 //#define static_allocate static_allocate_shaderc
