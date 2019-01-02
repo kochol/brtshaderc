@@ -74,6 +74,7 @@ namespace bgfx
 
 
 #include "brtshaderc.h"
+using namespace bgfx;
 
 namespace shaderc
 {
@@ -216,28 +217,22 @@ namespace shaderc
         std::string dir;
 		if (!code)
         {
-            const char* base = bgfx::baseName(filePath);
+            bx::FilePath fp(filePath);
+            bx::StringView path(fp.getPath() );
 
-            if (base != filePath)
-            {
-                dir.assign(filePath, base-filePath);
-                options.includeDirs.push_back(dir.c_str());
-            }
+            dir.assign(path.getPtr(), path.getTerm() );
+            options.includeDirs.push_back(dir);
         }
 
         // set defines
         while (NULL != defines
         &&    '\0'  != *defines)
         {
-            defines = bx::strws(defines);
-            const char* eol = bx::strFind(defines, ';');
-            if (NULL == eol)
-            {
-                eol = defines + bx::strLen(defines);
-            }
-            std::string define(defines, eol);
+            defines = bx::strLTrimSpace(defines).getPtr();
+            bx::StringView eol = bx::strFind(defines, ';');
+            std::string define(defines, eol.getPtr() );
             options.defines.push_back(define.c_str() );
-            defines = ';' == *eol ? eol+1 : eol;
+            defines = ';' == *eol.getPtr() ? eol.getPtr()+1 : eol.getPtr();
         }
 
 
@@ -268,7 +263,7 @@ namespace shaderc
         }
 
         // add padding
-        const size_t padding = 4096;
+        const size_t padding    = 16384;
 		uint32_t size;
 		if (code)
 			size = strlen(code);
@@ -281,8 +276,8 @@ namespace shaderc
 	        size = (uint32_t)bx::read(&reader, data, size);
 
         if (data[0] == '\xef'
-                &&  data[1] == '\xbb'
-                &&  data[2] == '\xbf')
+        &&  data[1] == '\xbb'
+        &&  data[2] == '\xbf')
         {
             bx::memMove(data, &data[3], size-3);
             size -= 3;
@@ -321,13 +316,10 @@ namespace shaderc
         }
     }
 
-    const char* baseName(const char* _filePath)
+    bx::StringView baseName(const char* _filePath)
     {
         bx::FilePath fp(_filePath);
-        char tmp[bx::kMaxFilePath];
-        bx::strCopy(tmp, BX_COUNTOF(tmp), fp.getFileName() );
-        const char* base = bx::strFind(_filePath, tmp);
-        return base;
+        return bx::strFind(_filePath, fp.getBaseName() );
     }
 
     int compileShader(int _argc, const char* _argv[], bx::FileWriter* _writer)
@@ -351,6 +343,8 @@ namespace shaderc
             return bx::kExitFailure;
         }
 
+        //@@g_verbose = cmdLine.hasArg("verbose");
+
         const char* filePath = cmdLine.findOption('f');
         if (NULL == filePath)
         {
@@ -358,12 +352,12 @@ namespace shaderc
             return bx::kExitFailure;
         }
 
-        const char* outFilePath = "";
-        //if (NULL == outFilePath)
-        //{
-        //    help("Output file name must be specified.");
-        //    return bx::kExitFailure;
-        //}
+        const char* outFilePath = cmdLine.findOption('o');
+        ///@if (NULL == outFilePath)
+        ///@{
+        ///@    help("Output file name must be specified.");
+        ///@    return bx::kExitFailure;
+        ///@}
 
         const char* type = cmdLine.findOption('\0', "type");
         if (NULL == type)
@@ -372,7 +366,7 @@ namespace shaderc
             return bx::kExitFailure;
         }
 
-        bgfx::Options options;
+        Options options;
         options.inputFilePath = filePath;
         options.outputFilePath = outFilePath;
         options.shaderType = bx::toLower(type[0]);
@@ -396,14 +390,15 @@ namespace shaderc
             options.profile = profile;
         }
 
-        {	// hlsl only
-            options.debugInformation = cmdLine.hasArg('\0', "debug");
-            options.avoidFlowControl = cmdLine.hasArg('\0', "avoid-flow-control");
-            options.noPreshader = cmdLine.hasArg('\0', "no-preshader");
-            options.partialPrecision = cmdLine.hasArg('\0', "partial-precision");
-            options.preferFlowControl = cmdLine.hasArg('\0', "prefer-flow-control");
+        {
+            options.debugInformation       = cmdLine.hasArg('\0', "debug");
+            options.avoidFlowControl       = cmdLine.hasArg('\0', "avoid-flow-control");
+            options.noPreshader            = cmdLine.hasArg('\0', "no-preshader");
+            options.partialPrecision       = cmdLine.hasArg('\0', "partial-precision");
+            options.preferFlowControl      = cmdLine.hasArg('\0', "prefer-flow-control");
             options.backwardsCompatibility = cmdLine.hasArg('\0', "backwards-compatibility");
-            options.warningsAreErrors = cmdLine.hasArg('\0', "Werror");
+            options.warningsAreErrors      = cmdLine.hasArg('\0', "Werror");
+            options.keepIntermediate       = cmdLine.hasArg('\0', "keep-intermediate");
 
             uint32_t optimization = 3;
             if (cmdLine.hasArg(optimization, 'O') )
@@ -413,32 +408,32 @@ namespace shaderc
             }
         }
 
-        //const char* bin2c = NULL;
-        //if (cmdLine.hasArg("bin2c") )
-        //{
-        //    bin2c = cmdLine.findOption("bin2c");
-        //    if (NULL == bin2c)
-        //    {
-        //        bin2c = baseName(outFilePath);
-        //        uint32_t len = (uint32_t)bx::strLen(bin2c);
-        //        char* temp = (char*)alloca(len+1);
-        //        for (char *out = temp; *bin2c != '\0';)
-        //        {
-        //            char ch = *bin2c++;
-        //            if (isalnum(ch) )
-        //            {
-        //                *out++ = ch;
-        //            }
-        //            else
-        //            {
-        //                *out++ = '_';
-        //            }
-        //        }
-        //        temp[len] = '\0';
-        //
-        //        bin2c = temp;
-        //    }
-        //}
+        ///@const char* bin2c = NULL;
+        ///@if (cmdLine.hasArg("bin2c") )
+        ///@{
+        ///@    bin2c = cmdLine.findOption("bin2c");
+        ///@    if (NULL == bin2c)
+        ///@    {
+        ///@        bin2c = baseName(outFilePath);
+        ///@        uint32_t len = (uint32_t)bx::strLen(bin2c);
+        ///@        char* temp = (char*)alloca(len+1);
+        ///@        for (char *out = temp; *bin2c != '\0';)
+        ///@        {
+        ///@            char ch = *bin2c++;
+        ///@            if (isalnum(ch) )
+        ///@            {
+        ///@                *out++ = ch;
+        ///@            }
+        ///@            else
+        ///@            {
+        ///@                *out++ = '_';
+        ///@            }
+        ///@        }
+        ///@        temp[len] = '\0';
+        ///@
+        ///@        bin2c = temp;
+        ///@    }
+        ///@}
 
         options.depends = cmdLine.hasArg("depends");
         options.preprocessOnly = cmdLine.hasArg("preprocess");
@@ -456,29 +451,31 @@ namespace shaderc
 
         std::string dir;
         {
-            const char* base = baseName(filePath);
+            bx::FilePath fp(filePath);
+            bx::StringView path(fp.getPath() );
 
-            if (base != filePath)
-            {
-                dir.assign(filePath, base-filePath);
-                options.includeDirs.push_back(dir.c_str());
-            }
+            dir.assign(path.getPtr(), path.getTerm() );
+            options.includeDirs.push_back(dir);
         }
 
         const char* defines = cmdLine.findOption("define");
         while (NULL != defines
         &&    '\0'  != *defines)
         {
-            defines = bx::strws(defines);
-            const char* eol = bx::strFind(defines, ';');
-            if (NULL == eol)
-            {
-                eol = defines + bx::strLen(defines);
-            }
-            std::string define(defines, eol);
+            defines = bx::strLTrimSpace(defines).getPtr();
+            bx::StringView eol = bx::strFind(defines, ';');
+            std::string define(defines, eol.getPtr() );
             options.defines.push_back(define.c_str() );
-            defines = ';' == *eol ? eol+1 : eol;
+            defines = ';' == *eol.getPtr() ? eol.getPtr()+1 : eol.getPtr();
         }
+
+        std::string commandLineComment = "// shaderc command line:\n//";
+        for (int32_t ii = 0, num = cmdLine.getNum(); ii < num; ++ii)
+        {
+            commandLineComment += " ";
+            commandLineComment += cmdLine.get(ii);
+        }
+        commandLineComment += "\n\n";
 
         bool compiled = false;
 
@@ -491,7 +488,7 @@ namespace shaderc
         {
             std::string defaultVarying = dir + "varying.def.sc";
             const char* varyingdef = cmdLine.findOption("varyingdef", defaultVarying.c_str() );
-            bgfx::File attribdef(varyingdef);
+            File attribdef(varyingdef);
             const char* parse = attribdef.getData();
             if (NULL != parse
             &&  *parse != '\0')
@@ -503,7 +500,7 @@ namespace shaderc
                 fprintf(stderr, "ERROR: Failed to parse varying def file: \"%s\" No input/output semantics will be generated in the code!\n", varyingdef);
             }
 
-            const size_t padding = 4096;
+            const size_t padding    = 16384;
             uint32_t size = (uint32_t)bx::getSize(&reader);
             char* data = new char[size+padding+1];
             size = (uint32_t)bx::read(&reader, data, size);
@@ -522,16 +519,17 @@ namespace shaderc
             bx::memSet(&data[size+1], 0, padding);
             bx::close(&reader);
 
+            ///@bx::FileWriter* writer = NULL;
             bx::FileWriter* writer = _writer;
 
-            //if (NULL != bin2c)
-            //{
-            //    writer = new Bin2cWriter(bin2c);
-            //}
-            //else
-            //{
-            //    writer = new bx::FileWriter;
-            //}
+            ///@if (NULL != bin2c)
+            ///@{
+            ///@    writer = new Bin2cWriter(bin2c);
+            ///@}
+            ///@else
+            ///@{
+            ///@    writer = new bx::FileWriter;
+            ///@}
 
             if (!bx::open(writer, outFilePath) )
             {
@@ -539,24 +537,11 @@ namespace shaderc
                 return bx::kExitFailure;
             }
 
-            std::string commandLineComment = "// shaderc command line:\n";
-
-            if ( compileShader(attribdef.getData(), commandLineComment.c_str(), data, size, options, writer) )
-                compiled = true;
+            compiled = compileShader(attribdef.getData(), commandLineComment.c_str(), data, size, options, writer);
 
             bx::close(writer);
-            //delete writer;
+            ///@delete writer;
         }
-
-        if (compiled)
-        {
-            return bx::kExitSuccess;
-        }
-
-        remove(outFilePath);
-
-        fprintf(stderr, "Failed to build shader.\n");
-        return bx::kExitFailure;
     }
 
     const bgfx::Memory* compileShader(int argc, const char* argv[])
